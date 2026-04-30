@@ -39,6 +39,7 @@ const SAVE_COMMIT_DELAY_MS = parseInt(process.env.SAVE_COMMIT_DELAY_MS || '200',
 // until SAVE_COMMIT_DELAY_MS milliseconds after the request arrives.
 app.post('/draft', (req, res) => {
   const { content } = req.body;
+  console.log(`[${new Date().toISOString()}] POST /draft START | incoming: "${content}" | current: "${currentDraft}"`);
   if (typeof content !== 'string') {
     return res.status(400).json({ error: 'content must be a string' });
   }
@@ -46,6 +47,7 @@ app.post('/draft', (req, res) => {
   // Simulate write latency.
   setTimeout(() => {
     currentDraft = content;
+    console.log(`[${new Date().toISOString()}] POST /draft END (COMMIT) | committed: "${content}" | new current: "${currentDraft}"`);
     res.json({ ok: true, saved: content });
   }, SAVE_COMMIT_DELAY_MS);
 });
@@ -56,7 +58,9 @@ app.post('/draft', (req, res) => {
 // in flight (its timeout hasn't fired), publishedDraft will be set to the
 // older saved value, not the in-flight one.
 app.post('/publish', (req, res) => {
+  console.log(`[${new Date().toISOString()}] POST /publish START | reading currentDraft: "${currentDraft}"`);
   publishedDraft = currentDraft;
+  console.log(`[${new Date().toISOString()}] POST /publish END | publishedDraft set to: "${publishedDraft}"`);
   res.json({ ok: true, published: publishedDraft });
 });
 
