@@ -1,0 +1,25 @@
+=== HARNESS LOG ===
+======================================
+       RACE CONDITION HARNESS         
+======================================
+
+1. Simulating saving the initial draft: 'Draft 1'
+   Initial draft saved.
+
+2. Simulating user typing 'Draft 2' and clicking Save...
+3. User immediately clicks Publish before Draft 2 save completes...
+
+4. Let's see what was published:
+   Final published state: "Draft 1"
+
+>>> BUG DEMONSTRATED: 'Draft 1' was published instead of 'Draft 2'!
+
+=== SERVER INSTRUMENTATION LOG ===
+Draft editor running on http://localhost:3000
+SAVE_COMMIT_DELAY_MS = 200
+[2026-04-30T01:23:55.205Z] POST /draft START | incoming: "Draft 1" | current: ""
+[2026-04-30T01:23:55.406Z] POST /draft END (COMMIT) | committed: "Draft 1" | new current: "Draft 1"
+[2026-04-30T01:23:55.408Z] POST /draft START | incoming: "Draft 2" | current: "Draft 1"
+[2026-04-30T01:23:55.460Z] POST /publish START | reading currentDraft: "Draft 1"
+[2026-04-30T01:23:55.460Z] POST /publish END | publishedDraft set to: "Draft 1"
+[2026-04-30T01:23:55.610Z] POST /draft END (COMMIT) | committed: "Draft 2" | new current: "Draft 2"
