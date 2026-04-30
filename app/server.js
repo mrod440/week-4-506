@@ -20,6 +20,7 @@ app.use(express.static(path.join(__dirname, 'static')));
 // is fine — the bug is in the timing, not the storage.
 let currentDraft = '';
 let publishedDraft = '';
+let pendingSavePromise = Promise.resolve();
 
 // SAVE_COMMIT_DELAY_MS controls how long a /draft request takes to commit.
 // In production this would represent database write latency, network latency,
@@ -39,13 +40,20 @@ const SAVE_COMMIT_DELAY_MS = parseInt(process.env.SAVE_COMMIT_DELAY_MS || '200',
 // until SAVE_COMMIT_DELAY_MS milliseconds after the request arrives.
 app.post('/draft', (req, res) => {
   const { content } = req.body;
+  console.log(`[${new Date().toISOString()}] POST /draft START | incoming: "${content}" | current: "${currentDraft}"`);
   if (typeof content !== 'string') {
     return res.status(400).json({ error: 'content must be a string' });
   }
 
+  let resolveSave;
+  const thisSavePromise = new Promise(resolve => { resolveSave = resolve; });
+  pendingSavePromise = thisSavePromise;
+
   // Simulate write latency.
   setTimeout(() => {
     currentDraft = content;
+    console.log(`[${new Date().toISOString()}] POST /draft END (COMMIT) | committed: "${content}" | new current: "${currentDraft}"`);
+    resolveSave();
     res.json({ ok: true, saved: content });
   }, SAVE_COMMIT_DELAY_MS);
 });
@@ -55,8 +63,12 @@ app.post('/draft', (req, res) => {
 // THE BUG: this reads currentDraft *immediately*. If a /draft request is
 // in flight (its timeout hasn't fired), publishedDraft will be set to the
 // older saved value, not the in-flight one.
-app.post('/publish', (req, res) => {
+app.post('/publish', async (req, res) => {
+  console.log(`[${new Date().toISOString()}] POST /publish START | waiting for any pending saves...`);
+  await pendingSavePromise;
+  console.log(`[${new Date().toISOString()}] POST /publish RESUMED | reading currentDraft: "${currentDraft}"`);
   publishedDraft = currentDraft;
+  console.log(`[${new Date().toISOString()}] POST /publish END | publishedDraft set to: "${publishedDraft}"`);
   res.json({ ok: true, published: publishedDraft });
 });
 
@@ -74,6 +86,7 @@ app.get('/current', (req, res) => {
 app.post('/reset', (req, res) => {
   currentDraft = '';
   publishedDraft = '';
+  pendingSavePromise = Promise.resolve();
   res.json({ ok: true });
 });
 
